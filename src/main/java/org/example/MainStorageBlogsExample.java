@@ -1,18 +1,18 @@
 package org.example;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.MalformedInputException;
+import java.io.*;
+import java.nio.charset.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.*;
 import java.util.Arrays;
+import java.util.HashSet;
 
 public class MainStorageBlogsExample {
 
     static String url = "jdbc:postgresql://localhost:5432/nodetexteditting";
     static Connection connection = null;
-    static void baglan(){
+    static void connectDatabase(){
         try {
             connection = DriverManager.getConnection(url, "postgres", "postgres");
             System.out.println("connected the database " + connection);
@@ -33,33 +33,51 @@ public class MainStorageBlogsExample {
 
     static int max = 0;
     static String maxFile = "";
+
+    static HashSet<String> malformedinputFile = new HashSet<>();
     static void RecursivePrint(File[] arr, int index, int level, String domain) throws IOException, SQLException, MalformedInputException {
         // terminate condition
         if (index == arr.length)
             return;
 
         // for files
-        if (arr[index].isFile() && !arr[index].getName().equals(".DS_Store")) {
-            //System.out.print(domain + "\t"); // alan adı index degeri
-            System.out.print((new File(arr[index].getParent())).getName() + "\t"); // alan adı
-            //System.out.print(arr[index].getName() + "\t"); // ismi
-            String content = Files.readString(Path.of(arr[index].getPath()));
-            //System.out.println(content); // içeriği
-            //System.out.println();
+        if (arr[index].isFile() && !arr[index].getName().equals(".DS_Store")
+        //&& arr[index].getName().equals("Ücretten Kesme Cezası Nedir textClipping.txt")
+        ) {
 
-            content = content.replace("'","\\'");
-            ResultSet rs = listele("Insert into blogsexamples (domain, textname, alltexts) " +
-                    "values ('"+ domain +"',E'"+ arr[index].getName().replace("'","\\'") +"'," +
-                    "E'" + content +"')");
+            //malformedinputexception: input length=1 hatasını decoder ile ignore etme
+            //ignoreMalformedInputException(arr[index]);
 
-            if(content.length() > max) {
-                max = content.length();
-                maxFile = arr[index].getName();
-                System.out.println("domain :"+ domain + ", girdi max:" + max + ", " + arr[index].getName());
+            try {
+                //System.out.print(domain + "\t"); // alan adı index degeri
+                //System.out.print((new File(arr[index].getParent())).getName() + "\t"); // alan adı
+                //System.out.print(arr[index].getName() + "\t"); // ismi
+
+                String content = Files.readString(Path.of(arr[index].getPath()), StandardCharsets.UTF_8);
+                //System.out.println(content); // içeriği
+
+                content = content.replace("'","\\'");
+
+            ResultSet rs = listele("Insert into examples (domain, textname, texts) " +
+                "values ('"+ domain +"',E'"+ arr[index].getName().replace("'","\\'") +"'," +
+                "E'" + content +"')");
+
+                if(content.length() > max) {
+                    max = content.length();
+                    maxFile = arr[index].getName();
+                    System.out.println("\nmax:" + max + ", " + arr[index].getName());
+                }
+                if(index%50 == 0)
+                    System.out.print("i" + index + "\t");
+            }
+            catch (MalformedInputException e){
+                System.out.println("\nmalformedinputexception hatası " + arr[index].getName());
+                malformedinputFile.add((new File(arr[index].getParent())).getName() + " " + arr[index].getName());
             }
         }
-            // for sub-directories
+        // for sub-directories
         else if (arr[index].isDirectory()) {
+
             // System.out.println(arr[index].getName()); // alan adı
 
             String[] domainList = {"Genel","Aile","Akademik","Arkeoloji","Astroloji","Bilim","Bilim-Teknoloji",
@@ -71,26 +89,24 @@ public class MainStorageBlogsExample {
 
                 if(arr[index].getName().equals(domainList[i])){
                     domain = String.valueOf(i);
-                    System.out.println("girdi domain " + domain);
+                    System.out.println("\ndomain " + domain);
                     break;
                 }
             }
 
             String folder = arr[index].getName();
             // recursion for sub-directories
-            if(domain.equals("14"))
-                RecursivePrint(arr[index].listFiles(), 0,level + 1, domain);
+            RecursivePrint(arr[index].listFiles(), 0,level + 1, domain);
         }
 
         // recursion for main directory
         RecursivePrint(arr, ++index, level, domain);
     }
 
-
     // Driver Method
     public static void main(String[] args) throws IOException, SQLException {
 
-        baglan();
+        connectDatabase();
         // Provide full path for directory(change
         // accordingly)
         String maindirpath = "/Users/merveakcakaya/Library/CloudStorage/Dropbox/Blog/";
@@ -131,19 +147,37 @@ public class MainStorageBlogsExample {
 
         System.out.println("maximum character size => " + max + "\nfile => " + maxFile);
 
-//        ResultSet rs = listele("Select * from users;");
-//
-//        try {
-//            while (rs.next()) {
-//                System.out.print(rs.getString("name") + " ");
-//                System.out.print(rs.getString("surname") + " ");
-//                System.out.print(rs.getString("email") + " ");
-//                System.out.print(rs.getArray("id") + " ");
-//                System.out.println();
-//            }
-//        } catch (SQLException e) {
-//            throw new RuntimeException(e);
-//        }
+        malformedinputFile.forEach(System.out::println);
+    }
 
+    private static void ignoreMalformedInputException(File arr) throws IOException {
+        CharsetDecoder decoder = Charset.forName("UTF-8").newDecoder();
+        decoder.onMalformedInput(CodingErrorAction.IGNORE);
+        InputStreamReader reader = new InputStreamReader(new FileInputStream(arr), decoder);
+        BufferedReader bufferedReader = new BufferedReader(reader);
+        StringBuilder sb = new StringBuilder();
+        String content = bufferedReader.readLine();
+        while (content != null){
+            sb.append(content);
+            content = bufferedReader.readLine();
+        }
+        bufferedReader.close();
+        content = sb.toString();
+    }
+
+    private static void sampleQuery() throws SQLException {
+        ResultSet rs = listele("Select * from users;");
+
+        try {
+            while (rs.next()) {
+                System.out.print(rs.getString("name") + " ");
+                System.out.print(rs.getString("surname") + " ");
+                System.out.print(rs.getString("email") + " ");
+                System.out.print(rs.getArray("id") + " ");
+                System.out.println();
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

@@ -12,11 +12,10 @@ public class MainStorageBlogsExample {
 
     static String url = "jdbc:postgresql://localhost:5432/nodetexteditting";
     static Connection connection = null;
-
     static void baglan(){
         try {
             connection = DriverManager.getConnection(url, "postgres", "postgres");
-            System.out.println("bağlandı " + connection);
+            System.out.println("connected the database " + connection);
         }
         catch (SQLException e){
             e.printStackTrace();
@@ -27,8 +26,8 @@ public class MainStorageBlogsExample {
 
         Statement st = connection.createStatement();
         ResultSet rs = null;
-        //rs = st.executeQuery(sorgu);
-        st.executeUpdate(sorgu);
+        //rs = st.executeQuery(sorgu); // select operations
+        st.executeUpdate(sorgu); // update, insert operations
         return rs;
     }
 
@@ -42,7 +41,7 @@ public class MainStorageBlogsExample {
         // for files
         if (arr[index].isFile() && !arr[index].getName().equals(".DS_Store")) {
             //System.out.print(domain + "\t"); // alan adı index degeri
-            //System.out.print((new File(arr[index].getParent())).getName() + "\t"); // alan adı
+            System.out.print((new File(arr[index].getParent())).getName() + "\t"); // alan adı
             //System.out.print(arr[index].getName() + "\t"); // ismi
             String content = Files.readString(Path.of(arr[index].getPath()));
             //System.out.println(content); // içeriği
